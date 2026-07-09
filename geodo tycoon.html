@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geodo Tycoon</title>
+    <style>
+        body {
+            margin: 0; overflow: hidden;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            user-select: none; background-color: #0b0a1d;
+        }
+        canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+
+        /* --- MENU INICIAL --- */
+        #main-menu {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(135deg, #121032 0%, #070616 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 10; transition: opacity 0.4s ease;
+        }
+        #main-menu h1 {
+            color: #00ffcc; font-size: 46px; margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(0, 255, 204, 0.4); text-transform: uppercase;
+        }
+        .play-btn {
+            padding: 15px 45px; font-size: 20px; background: linear-gradient(90deg, #00ffcc, #00bfff);
+            color: #060610; border: none; border-radius: 50px; cursor: pointer; font-weight: bold;
+        }
+
+        /* --- HUD PRINCIPAL --- */
+        #game-ui {
+            position: absolute; top: 20px; left: 20px; color: white;
+            background: rgba(10, 10, 28, 0.85); padding: 15px 20px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); pointer-events: none; display: none; z-index: 5;
+        }
+        #game-ui h2 { margin: 0 0 5px 0; font-size: 16px; color: #ffd700; text-transform: uppercase; }
+        #game-ui p { margin: 4px 0; font-size: 14px; color: #e0e0ff; }
+
+        /* --- ABAS / PAINEL LATERAL --- */
+        #side-panel {
+            position: absolute; top: 20px; right: 20px; color: white;
+            background: rgba(10, 10, 28, 0.9); padding: 20px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); width: 260px; display: none; z-index: 5;
+            max-height: 85vh; overflow-y: auto;
+        }
+        .tabs { display: flex; gap: 5px; margin-bottom: 15px; }
+        .tab-btn { flex: 1; padding: 6px; font-size: 11px; background: #2c2a5e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        .tab-btn.active { background: #00ffcc; color: #060610; }
+
+        .btn {
+            display: block; width: 100%; padding: 10px; margin: 8px 0;
+            background: #20c997; color: #060610; border: none; border-radius: 6px;
+            cursor: pointer; font-weight: bold; font-size: 13px;
+        }
+        .btn:disabled { background: #3e3e50; color: #888; cursor: not-allowed; }
+
+        .skin-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .skin-preview { width: 15px; height: 15px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+        /* --- INVENTÁRIO --- */
+        #inventory-modal {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(15, 15, 35, 0.95); border: 2px solid #00ffcc; border-radius: 15px;
+            padding: 25px; color: white; width: 300px; display: none; z-index: 8;
+        }
+        #inventory-modal h2 { margin-top: 0; color: #00ffcc; text-align: center; font-size: 18px;}
+        .inv-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+
+        /* --- MENU DE SELEÇÃO DE VISUAL --- */
+        #pickaxe-custom-modal {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(15, 15, 40, 0.95); border: 2px solid #9b59b6; border-radius: 15px;
+            padding: 25px; color: white; width: 320px; display: none; z-index: 8;
+        }
+        #pickaxe-custom-modal h2 { margin-top: 0; color: #9b59b6; text-align: center; font-size: 18px; text-transform: uppercase;}
+        .pick-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .pick-preview-img { width: 24px; height: 24px; object-fit: contain; background: rgba(255,255,255,0.1); border-radius: 4px; margin-right: 8px; vertical-align: middle;}
+        .pick-btn { padding: 5px 10px; font-size: 11px; background: #9b59b6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        .pick-btn:disabled { background: #444; color: #888; cursor: not-allowed;}
+
+        /* --- OUTROS --- */
+        #alert-box {
+            position: absolute; top: 15%; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 255, 204, 0.2); border: 1px solid #00ffcc;
+            padding: 10px 30px; color: white; border-radius: 20px; font-weight: bold;
+            display: none; z-index: 6;
+        }
+        #mining-progress {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            width: 200px; height: 12px; background: #222; border: 2px solid #fff;
+            border-radius: 10px; overflow: hidden; display: none; z-index: 6;
+        }
+        #mining-bar { width: 0%; height: 100%; background: #00ffcc; }
+        #instructions {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            color: #a0a0d0; background: rgba(10, 10, 28, 0.8); padding: 8px 25px;
+            border-radius: 20px; font-size: 13px; display: none; z-index: 5; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-menu">
+        <h1>Geodo Tycoon</h1>
+        <p>Evolua suas ferramentas, gerencie o museu e desbloqueie novas profundezas!</p>
+        <button class="play-btn" onclick="startGame()">JOGAR</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="game-ui">
+        <h2>Área: <span id="current-zone-text" style="color:#00ffcc;">MINA</span></h2>
+        <p>Dinheiro: <b style="color: #ffd700;">$<span id="money">0</span></b></p>
+        <p>Ferramenta Atual: <span id="pickaxe-name" style="font-weight:bold;">Madeira</span></p>
+        <p>Mochila: <span id="total-ores">0</span> itens</p>
+        <p id="museum-income-ui" style="color: #00ff66; display:none;">Renda do Museu: +$<span id="income-val">0</span>/s</p>
+    </div>
+
+    <div id="side-panel">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('loja')">Loja</button>
+            <button class="tab-btn" onclick="switchTab('skins')">Skins</button>
+        </div>
+
+        <div id="tab-loja">
+            <button class="btn" onclick="sellOres()">Vender Minérios</button>
+            <button class="btn" id="upgrade-btn" onclick="buyUpgrade()">Melhorar Ferramenta ($60)</button>
+        </div>
+
+        <div id="tab-skins" style="display: none;">
+            <div id="skins-list"></div>
+        </div>
+    </div>
+
+    <div id="inventory-modal">
+        <h2>Seu Inventário</h2>
+        <div id="inventory-list"></div>
+        <p style="font-size: 11px; color: #8a8ab0; text-align: center; margin-top: 15px;">Aperte F para fechar</p>
+    </div>
+
+    <div id="pickaxe-custom-modal">
+        <h2>Customizar Ferramenta</h2>
+        <div id="pickaxe-style-list"></div>
+        <button class="btn" style="background:#555; color:white; margin-top:15px;" onclick="closeCustomPickaxeMenu()">Fechar Menu</button>
+    </div>
+
+    <div id="alert-box"></div>
+    <div id="mining-progress"><div id="mining-bar"></div></div>
+    <div id="instructions">Use WASD para andar. Segure E perto das pedras. Novas áreas exigem ferramentas melhores!</div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+
+        // --- INSTANCIAÇÃO DAS TEXTURAS (LINKS ENVIADOS E ANTIGAS REATIVADAS) ---
+        const imgPicaretaMadeira = new Image();
+        imgPicaretaMadeira.src = 'https://static.vecteezy.com/system/resources/thumbnails/012/638/360/small/pickaxe-tool-color-png.png';
+
+        const imgPicaretaPedra = new Image();
+        imgPicaretaPedra.src = 'https://cdn-icons-png.magnific.com/256/12015/12015984.png?semt=ais_white_label';
+
+        const imgPicaretaFerro = new Image();
+        imgPicaretaFerro.src = 'https://cdn-icons-png.flaticon.com/512/664/664112.png';
+
+        const imgPicaretaDiamante = new Image();
+        imgPicaretaDiamante.src = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcReWaCoPT6WRMC0xxGUqnZAIlLUVzVdxX7oHGxzuo7u0A&s=10';
+
+        const imgPicaretaObsidiana = new Image();
+        imgPicaretaObsidiana.src = 'https://cdn-icons-png.flaticon.com/256/3032/3032541.png';
+
+        const imgPicaretaPlasma = new Image();
+        imgPicaretaPlasma.src = 'https://p.novaskin.me/3671263162.png';
+
+        const imgPicaretaAntimateria = new Image();
+        imgPicaretaAntimateria.src = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRM4wWTq7DSn6UrtkBvHzH6F_EQtdBbex3va4bzSz250S5WcVC3KdmwOpxQ&s=10';
+
+        const imgMestradoCosmico = new Image();
+        imgMestradoCosmico.src = 'https://cdn-icons-png.magnific.com/256/7668/7668544.png?semt=ais_white_label';
+
+        const imgBritadeira = new Image();
+        imgBritadeira.src = 'https://cdn-icons-png.flaticon.com/512/1207/1207226.png';
+
+        const imgJogador = new Image();
+        imgJogador.src = 'https://image.pngaaa.com/73/4853073-middle.png';
+
+        // --- CONFIGURAÇÃO DE DADOS ---
+        const oreTypes = {
+            "carvao": { name: "Carvão", color: "#3a3a3a", val: 8, chance: 0.40, zone: "mina" },
+            "ferro": { name: "Ferro", color: "#d4a373", val: 20, chance: 0.35, zone: "mina" }, 
+            "ouro": { name: "Ouro", color: "#ffb703", val: 56, chance: 0.20, zone: "mina" },   
+            "diamante": { name: "Diamante", color: "#00f5d4", val: 250, chance: 0.05, zone: "mina" },
+            "safira": { name: "Safira Estelar", color: "#3a86ff", val: 420, chance: 0.60, zone: "caverna" }, 
+            "rubi": { name: "Rubi Sangue", color: "#ff006e", val: 980, chance: 0.32, zone: "caverna" },     
+            "voidite": { name: "Cristal do Vazio", color: "#8338ec", val: 2240, chance: 0.08, zone: "caverna" }, 
+            "plasmite": { name: "Plasmite Em Chamas", color: "#ff0055", val: 4000, chance: 0.70, zone: "plasma" },
+            "antimateria": { name: "Antimatéria Estável", color: "#00ffff", val: 10000, chance: 0.30, zone: "plasma" }
+        };
+
+        // Todas as ferramentas configuradas perfeitamente para usar texturas por imagem
+        const pickaxes = [
+            { id: 1, name: "Madeira (x1)", cost: 0, mult: 1, speed: 1.2, color: "#8b5a2b", imgElement: imgPicaretaMadeira },
+            { id: 2, name: "Pedra Customizada (x2)", cost: 60, mult: 2, speed: 1.8, color: "#7f8c8d", imgElement: imgPicaretaPedra },
+            { id: 3, name: "Ferro Customizada (x4)", cost: 250, mult: 4, speed: 2.8, color: "#dcdde1", imgElement: imgPicaretaFerro },
+            { id: 4, name: "Diamante Customizada (x10)", cost: 800, mult: 10, speed: 4.5, color: "#00a8ff", imgElement: imgPicaretaDiamante },
+            { id: 5, name: "Obsidiana (x25)", cost: 3500, mult: 25, speed: 7.0, color: "#482ff7", imgElement: imgPicaretaObsidiana },
+            { id: 6, name: "Picareta de Plasma (x45)", cost: 8000, mult: 45, speed: 9.5, color: "#ff0055", imgElement: imgPicaretaPlasma }, 
+            { id: 7, name: "Picareta de Antimatéria (x60)", cost: 14000, mult: 60, speed: 11.5, color: "#00ffff", imgElement: imgPicaretaAntimateria }, 
+            { id: 8, name: "Mestrado Cósmico (x85)", cost: 22000, mult: 85, speed: 14.0, color: "#ff007f", imgElement: imgMestradoCosmico }, 
+            { id: 9, name: "Britadeira Hidráulica (x180)", cost: 30000, mult: 180, speed: 22.0, color: "#fbc531", imgElement: imgBritadeira } 
+        ];
+
+        const skinShop = [
+            { id: "padrão", name: "Recruta Neon", color: "#00ffcc", cost: 0, purchased: true },
+            { id: "ouro", name: "Mineiro de Ouro", color: "#ffb703", cost: 500, purchased: false },
+            { id: "ruby", name: "Explorador Carmim", color: "#ff006e", cost: 3000, purchased: false },
+            { id: "vazio", name: "Lorde do Vazio", color: "#8338ec", cost: 12000, purchased: false }
+        ];
+
+        let player = { x: 0, y: 120, speed: 4.5, money: 0, level: 1, activeSkin: "#00ffcc", visualPickaxeOverride: null };
+        let backpack = { carvao:0, ferro:0, ouro:0, diamante:0, safira:0, rubi:0, voidite:0, plasmite:0, antimateria:0 };
+        let museumStock = { carvao:false, ferro:false, ouro:false, diamante:false, safira:false, rubi:false, voidite:false, plasmite:false, antimateria:false };
+
+        let currentZone = "mina"; 
+        const mapSize = 1300;
+        let gameActive = false;
+        let isInventoryOpen = false;
+        let isCustomPickMenuOpen = false;
+
+        let mysteryRocks = []; let looseOres = []; let museumPedestals = []; let visitors = []; let caveReliefs = []; let flowerPots = [];
+        
+        const portalMina = { x: 0, y: 0, to: "museu", label: "PORTA DA SUPERFÍCIE" };
+        const portalCaverna = { x: 0, y: -450, to: "caverna", label: "DESCER PARA AS CAVERNAS (REQ. FERRAMENTA NV. 3)" };
+        const portalVoltaCaverna = { x: 0, y: 450, to: "mina", label: "SUBIR PARA A MINA" };
+        const portalMuseu = { x: 0, y: 0, to: "mina", label: "ENTRAR NA MINA" };
+        const portalIrPlasma = { x: 0, y: -450, to: "plasma", label: "NÚCLEO DE PLASMA (REQ. PENÚLTIMA FERRAMENTA)" };
+        const portalVoltaPlasma = { x: 0, y: 450, to: "caverna", label: "RETORNAR PARA AS CAVERNAS" };
+        const portalSaidaMuseu = { x: 0, y: 450, label: "SAÍDA DO MUSEU (SAIR DO JOGO)" };
+
+        const customStation = { x: -400, y: 150, radius: 40 };
+        let miningTarget = null; let miningProgress = 0; let lastIncomeTime = 0;
+
+        const keys = { w:false, a:false, s:false, d:false, e:false, ArrowUp:false, ArrowDown:false, ArrowLeft:false, ArrowRight:false };
+        window.addEventListener('keydown', (e) => {
+            let k = e.key.toLowerCase(); if (k in keys) keys[k] = true; if (e.key in keys) keys[e.key] = true;
+            if (k === 'f' && gameActive && !isCustomPickMenuOpen) {
+                isInventoryOpen = !isInventoryOpen;
+                document.getElementById('inventory-modal').style.display = isInventoryOpen ? 'block' : 'none';
+                if(isInventoryOpen) renderInventoryList();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            let k = e.key.toLowerCase(); if (k in keys) keys[k] = false; if (e.key in keys) keys[e.key] = false;
+        });
+
+        // --- GERADORES ---
+        function generateMinaElements() {
+            mysteryRocks = []; looseOres = [];
+            for (let i = 0; i < 18; i++) mysteryRocks.push({ x: (Math.random() - 0.5) * (mapSize-160), y: (Math.random() - 0.5) * (mapSize-160), size: 20, isWallNode: false, type: "comum" });
+            for (let i = 0; i < 20; i++) {
+                let list = ["carvao", "ferro", "ouro", "diamante"];
+                let t = list[Math.floor(Math.random() * list.length)];
+                looseOres.push({ x: (Math.random() - 0.5) * (mapSize-160), y: (Math.random() - 0.5) * (mapSize-160), type: t, size: 9, anim: Math.random()*10 });
+            }
+        }
+
+        function generateCavernaElements() {
+            mysteryRocks = []; looseOres = []; caveReliefs = [];
+            for(let i = 0; i < 8; i++) {
+                caveReliefs.push({ x: (Math.random() - 0.5) * (mapSize - 300), y: (Math.random() - 0.5) * (mapSize - 300), w: 120 + Math.random() * 100, h: 40 + Math.random() * 40 });
+            }
+            caveReliefs.forEach(r => {
+                mysteryRocks.push({ x: r.x + r.w/2, y: r.y - 10, size: 22, isWallNode: true, type: "comum" });
+                mysteryRocks.push({ x: r.x - 10, y: r.y + r.h/2, size: 22, isWallNode: true, type: "comum" });
+            });
+            for (let i = 0; i < 15; i++) {
+                let list = ["safira", "rubi", "voidite"];
+                let t = list[Math.floor(Math.random() * list.length)];
+                looseOres.push({ x: (Math.random() - 0.5) * (mapSize-200), y: (Math.random() - 0.5) * (mapSize-200), type: t, size: 10, anim: Math.random()*10 });
+            }
+        }
+
+        function generatePlasmaElements() {
+            mysteryRocks = []; looseOres = [];
+            for (let i = 0; i < 14; i++) { mysteryRocks.push({ x: (Math.random() - 0.5) * (mapSize-200), y: (Math.random() - 0.5) * (mapSize-200), size: 25, isWallNode: false, type: "plasma" }); }
+            for (let i = 0; i < 12; i++) {
+                let list = ["plasmite", "antimateria"];
+                let t = list[Math.floor(Math.random() * list.length)];
+                looseOres.push({ x: (Math.random() - 0.5) * (mapSize-250), y: (Math.random() - 0.5) * (mapSize-250), type: t, size: 12, anim: Math.random()*10 });
+            }
+        }
+
+        function generateMuseuElements() {
+            museumPedestals = [
+                { x: -500, y: -160, type: "carvao", label: "Carvão" }, { x: -380, y: -160, type: "ferro", label: "Ferro" },
+                { x: -260, y: -160, type: "ouro", label: "Ouro" }, { x: -140, y: -160, type: "diamante", label: "Diamante" },
+                { x: -20, y: -160, type: "safira", label: "Safira" }, { x: 100, y: -160, type: "rubi", label: "Rubi" },
+                { x: 220, y: -160, type: "voidite", label: "Voidite" }, { x: 340, y: -160, type: "plasmite", label: "Plasmite" }, { x: 460, y: -160, type: "antimateria", label: "Antimater." }
+            ];
+            flowerPots = [ { x: -580, y: -220 }, { x: 580, y: -220 }, { x: -200, y: 200 }, { x: 200, y: 200 }, { x: -550, y: 400 }, { x: 550, y: 400 } ];
+            visitors = [];
+        }
+
+        generateMinaElements(); generateMuseuElements();
+
+        // --- LÓGICA ---
+        function updateLogic() {
+            if (!gameActive || isInventoryOpen || isCustomPickMenuOpen) return;
+
+            let dx = 0, dy = 0;
+            if (keys.w || keys.ArrowUp) dy -= player.speed;
+            if (keys.s || keys.ArrowDown) dy += player.speed;
+            if (keys.a || keys.ArrowLeft) dx -= player.speed;
+            if (keys.d || keys.ArrowRight) dx += player.speed;
+
+            if (currentZone === "caverna") {
+                caveReliefs.forEach(r => {
+                    if (player.x + dx > r.x && player.x + dx < r.x + r.w && player.y > r.y && player.y < r.y + r.h) dx = 0;
+                    if (player.x > r.x && player.x < r.x + r.w && player.y + dy > r.y && player.y + dy < r.y + r.h) dy = 0;
+                });
+            }
+
+            if (currentZone === "museu") {
+                flowerPots.forEach(pot => {
+                    if (Math.sqrt((player.x + dx - pot.x)**2 + (player.y + dy - pot.y)**2) < 24) { dx = 0; dy = 0; }
+                });
+            }
+
+            player.x += dx; player.y += dy;
+            const bound = mapSize / 2 - 25;
+            player.x = Math.max(-bound, Math.min(bound, player.x));
+            player.y = Math.max(-bound, Math.min(bound, player.y));
+
+            if (currentZone === "mina") {
+                if (Math.sqrt((player.x - portalMina.x)**2 + (player.y - portalMina.y)**2) < 35) {
+                    currentZone = "museu"; player.x = 0; player.y = 120; resetMining();
+                } else if (Math.sqrt((player.x - portalCaverna.x)**2 + (player.y - portalCaverna.y)**2) < 35) {
+                    if (player.level >= 3) { 
+                        currentZone = "caverna"; player.x = 0; player.y = 380; resetMining(); generateCavernaElements();
+                    } else {
+                        triggerAlert("Bloqueado! Requer Ferramenta Nível 3 ou superior.");
+                        player.y += 20;
+                    }
+                }
+            } else if (currentZone === "caverna") {
+                if (Math.sqrt((player.x - portalVoltaCaverna.x)**2 + (player.y - portalVoltaCaverna.y)**2) < 35) {
+                    currentZone = "mina"; player.x = 0; player.y = -400; resetMining(); generateMinaElements();
+                } else if (Math.sqrt((player.x - portalIrPlasma.x)**2 + (player.y - portalIrPlasma.y)**2) < 35) {
+                    if (player.level >= 8) { 
+                        currentZone = "plasma"; player.x = 0; player.y = 380; resetMining(); generatePlasmaElements();
+                    } else {
+                        triggerAlert("Bloqueado! Requer a Penúltima Ferramenta (Mestrado Cósmico).");
+                        player.y += 20;
+                    }
+                }
+            } else if (currentZone === "plasma") {
+                if (Math.sqrt((player.x - portalVoltaPlasma.x)**2 + (player.y - portalVoltaPlasma.y)**2) < 35) {
+                    currentZone = "caverna"; player.x = 0; player.y = -400; resetMining(); generateCavernaElements();
+                }
+            } else if (currentZone === "museu") {
+                if (Math.sqrt((player.x - portalMuseu.x)**2 + (player.y - portalMuseu.y)**2) < 35) {
+                    currentZone = "mina"; player.x = 0; player.y = -100;
+                }
+                if (Math.sqrt((player.x - portalSaidaMuseu.x)**2 + (player.y - portalSaidaMuseu.y)**2) < 35) { exitToMainMenu(); }
+                if (Math.sqrt((player.x - customStation.x)**2 + (player.y - customStation.y)**2) < customStation.radius) { openCustomPickaxeMenu(); }
+            }
+            document.getElementById('current-zone-text').innerText = currentZone.toUpperCase();
+
+            // Mineração
+            if (currentZone !== "museu") {
+                for (let i = looseOres.length - 1; i >= 0; i--) {
+                    let ore = looseOres[i];
+                    if (Math.sqrt((player.x - ore.x)**2 + (player.y - ore.y)**2) < 26) {
+                        backpack[ore.type] += 1 * pickaxes[player.level - 1].mult;
+                        triggerAlert(`Pegou: +${pickaxes[player.level - 1].mult} ${oreTypes[ore.type].name}!`);
+                        looseOres.splice(i, 1); updateUI();
+                    }
+                }
+
+                let pica = pickaxes[player.level - 1];
+                if (keys.e) {
+                    let closestRock = null; let minDist = 45;
+                    mysteryRocks.forEach(rock => {
+                        let d = Math.sqrt((player.x - rock.x)**2 + (player.y - rock.y)**2);
+                        if (d < minDist) closestRock = rock;
+                    });
+
+                    if (closestRock) {
+                        miningTarget = closestRock;
+                        document.getElementById('mining-progress').style.display = 'block';
+                        miningProgress += pica.speed;
+                        document.getElementById('mining-bar').style.width = `${Math.min(miningProgress, 100)}%`;
+
+                        if (miningProgress >= 100) {
+                            let rand = Math.random(); let acc = 0; let finalOre = "carvao";
+                            for (let k in oreTypes) {
+                                if (oreTypes[k].zone === currentZone) {
+                                    acc += oreTypes[k].chance;
+                                    if (rand <= acc || (currentZone === "plasma" && k === "antimateria")) { finalOre = k; break; }
+                                }
+                            }
+                            backpack[finalOre] += 1 * pica.mult;
+                            triggerAlert(`Extraído: ${oreTypes[finalOre].name} (x${pica.mult})!`);
+                            mysteryRocks = mysteryRocks.filter(r => r !== miningTarget);
+                            resetMining(); updateUI();
+
+                            setTimeout(() => {
+                                if (gameActive) {
+                                    let type = currentZone === "plasma" ? "plasma" : "comum";
+                                    let size = currentZone === "plasma" ? 25 : 20;
+                                    mysteryRocks.push({ x: (Math.random() - 0.5) * (mapSize-200), y: (Math.random() - 0.5) * (mapSize-200), size: size, isWallNode: Math.random()>0.5, type: type });
+                                }
+                            }, 5000);
+                        }
+                    } else { resetMining(); }
+                } else { resetMining(); }
+            }
+
+            // MUSEU
+            if (currentZone === "museu") {
+                museumPedestals.forEach(p => {
+                    if (Math.sqrt((player.x - p.x)**2 + (player.y - p.y)**2) < 35 && backpack[p.type] > 0) {
+                        backpack[p.type]--; museumStock[p.type] = true;
+                        triggerAlert(`Exposição updated!`); updateUI();
+                    }
+                });
+
+                if (Math.random() < 0.015 && visitors.length < 12) {
+                    visitors.push({ x: 0, y: 0, tx: (Math.random() - 0.5) * 900, ty: -60 - Math.random() * 80, state: "olhando", timer: 150 + Math.random() * 200 });
+                }
+
+                for (let i = visitors.length - 1; i >= 0; i--) {
+                    let v = visitors[i];
+                    if (v.state === "olhando") {
+                        v.timer--; v.x += (v.tx - v.x) * 0.02; v.y += (v.ty - v.y) * 0.02;
+                        if (v.timer <= 0) { v.state = "saindo"; v.tx = 0; v.ty = 0; }
+                    } else if (v.state === "saindo") {
+                        v.x += (v.tx - v.x) * 0.03; v.y += (v.ty - v.y) * 0.03;
+                        if (Math.sqrt(v.x**2 + v.y**2) < 15) { visitors.splice(i, 1); }
+                    }
+                }
+
+                let now = Date.now();
+                if(now - lastIncomeTime > 1000) {
+                    let income = 0;
+                    for(let key in museumStock) { if(museumStock[key]) income += Math.floor(oreTypes[key].val * 0.15); }
+                    if (income > 0) { player.money += income; document.getElementById('income-val').innerText = income; document.getElementById('money').innerText = player.money; }
+                    lastIncomeTime = now;
+                }
+            }
+        }
+
+        function resetMining() { miningTarget = null; miningProgress = 0; document.getElementById('mining-progress').style.display = 'none'; }
+
+        // --- ART E RENDERIZAÇÃO ---
+        function drawScene() {
+            if (currentZone === "mina") ctx.fillStyle = "#0f0e26";
+            else if (currentZone === "caverna") ctx.fillStyle = "#070512";
+            else if (currentZone === "plasma") ctx.fillStyle = "#1f0310";
+            else ctx.fillStyle = "#161a36";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const cx = canvas.width / 2; const cy = canvas.height / 2;
+            ctx.strokeStyle = currentZone === "caverna" ? "#3a135c" : (currentZone === "plasma" ? "#ff0055" : "#2d2a5a"); ctx.lineWidth = 6;
+            ctx.strokeRect(cx - player.x - mapSize/2, cy - player.y - mapSize/2, mapSize, mapSize);
+
+            // Portais
+            ctx.save(); ctx.shadowBlur = 15; ctx.font = "bold 11px sans-serif";
+            if (currentZone === "mina") {
+                ctx.fillStyle = "#00bfff"; ctx.shadowColor = "#00bfff"; ctx.fillRect(cx + (portalMina.x - player.x) - 25, cy + (portalMina.y - player.y) - 25, 50, 50);
+                ctx.fillStyle = "#fff"; ctx.fillText(portalMina.label, cx + (portalMina.x - player.x) - 55, cy + (portalMina.y - player.y) + 4);
+                
+                ctx.fillStyle = "#8338ec"; ctx.shadowColor = "#8338ec"; ctx.fillRect(cx + (portalCaverna.x - player.x) - 25, cy + (portalCaverna.y - player.y) - 25, 50, 50);
+                ctx.fillStyle = "#fff"; ctx.fillText(portalCaverna.label, cx + (portalCaverna.x - player.x) - 100, cy + (portalCaverna.y - player.y) + 4);
+            } else if (currentZone === "caverna") {
+                ctx.fillStyle = "#00ffcc"; ctx.shadowColor = "#00ffcc"; ctx.fillRect(cx + (portalVoltaCaverna.x - player.x) - 25, cy + (portalVoltaCaverna.y - player.y) - 25, 50, 50);
+                ctx.fillStyle = "#fff"; ctx.fillText(portalVoltaCaverna.label, cx + (portalVoltaCaverna.x - player.x) - 50, cy + (portalVoltaCaverna.y - player.y) + 4);
+                
+                ctx.fillStyle = "#ff00aa"; ctx.shadowColor = "#ff00aa"; ctx.fillRect(cx + (portalIrPlasma.x - player.x) - 25, cy + (portalIrPlasma.y - player.y) - 25, 50, 50);
+                ctx.fillStyle = "#fff"; ctx.fillText(portalIrPlasma.label, cx + (portalIrPlasma.x - player.x) - 120, cy + (portalIrPlasma.y - player.y) + 4);
+            } else if (currentZone === "plasma") {
+                ctx.fillStyle = "#8338ec"; ctx.shadowColor = "#8338ec"; ctx.fillRect(cx + (portalVoltaPlasma.x - player.x) - 25, cy + (portalVoltaPlasma.y - player.y) - 25, 50, 50);
+                ctx.fillStyle = "#fff"; ctx.fillText(portalVoltaPlasma.label, cx + (portalVoltaPlasma.x - player.x) - 75, cy + (portalVoltaPlasma.y - player.y) + 4);
+            } else if (currentZone === "museu") {
+                ctx.fillStyle = "#00bfff"; ctx.shadowColor = "#00bfff"; ctx.fillRect(cx + (portalMuseu.x - player.x) - 25, cy + (portalMuseu.y - player.y) - 25, 50, 50);
+                ctx.fillStyle = "#fff"; ctx.fillText(portalMuseu.label, cx + (portalMuseu.x - player.x) - 40, cy + (portalMuseu.y - player.y) + 4);
+                
+                ctx.fillStyle = "#ff3838"; ctx.shadowColor = "#ff3838"; ctx.fillRect(cx + (portalSaidaMuseu.x - player.x) - 30, cy + (portalSaidaMuseu.y - player.y) - 15, 60, 30);
+                ctx.fillStyle = "#fff"; ctx.fillText(portalSaidaMuseu.label, cx + (portalSaidaMuseu.x - player.x) - 85, cy + (portalSaidaMuseu.y - player.y) - 22);
+            }
+            ctx.restore();
+
+            if (currentZone === "caverna") {
+                caveReliefs.forEach(r => {
+                    let rx = cx + (r.x - player.x); let ry = cy + (r.y - player.y);
+                    ctx.fillStyle = "#1e132b"; ctx.fillRect(rx, ry, r.w, r.h);
+                });
+            }
+
+            if (currentZone !== "museu") {
+                mysteryRocks.forEach(rock => {
+                    let rx = cx + (rock.x - player.x); let ry = cy + (rock.y - player.y);
+                    ctx.fillStyle = rock.type === "plasma" ? "#ff00aa" : (rock.isWallNode ? "#9b59b6" : "#57606f");
+                    ctx.beginPath(); ctx.arc(rx, ry, rock.size, 0, Math.PI*2); ctx.fill();
+                });
+
+                looseOres.forEach(ore => {
+                    let ox = cx + (ore.x - player.x); let oy = cy + (ore.y - player.y); ore.anim += 0.05;
+                    ctx.fillStyle = oreTypes[ore.type].color;
+                    ctx.fillRect(ox - ore.size/2, oy + Math.sin(ore.anim)*4 - ore.size/2, ore.size, ore.size);
+                });
+            } else {
+                flowerPots.forEach(pot => {
+                    let px = cx + (pot.x - player.x); let py = cy + (pot.y - player.y);
+                    ctx.fillStyle = "#d27d2d"; ctx.fillRect(px - 12, py, 24, 14);
+                    ctx.fillStyle = "#2ed573"; ctx.beginPath(); ctx.arc(px, py - 8, 10, 0, Math.PI*2); ctx.fill();
+                });
+
+                let sx = cx + (customStation.x - player.x); let sy = cy + (customStation.y - player.y);
+                ctx.fillStyle = "#341f97"; ctx.fillRect(sx - 20, sy - 15, 40, 30);
+
+                museumPedestals.forEach(p => {
+                    let px = cx + (p.x - player.x); let py = cy + (p.y - player.y);
+                    ctx.fillStyle = "#dcdde1"; ctx.fillRect(px - 18, py - 10, 36, 20);
+                    if (museumStock[p.type]) { ctx.fillStyle = oreTypes[p.type].color; ctx.beginPath(); ctx.arc(px, py - 22, 7, 0, Math.PI*2); ctx.fill(); }
+                });
+
+                visitors.forEach(v => { ctx.fillStyle = "#e67e22"; ctx.beginPath(); ctx.arc(cx + (v.x - player.x), cy + (v.y - player.y), 9, 0, Math.PI*2); ctx.fill(); });
+            }
+
+            // Desenhar jogador baseado na Skin ativa
+            ctx.fillStyle = player.activeSkin;
+            ctx.beginPath(); ctx.arc(cx, cy, 16, 0, Math.PI*2); ctx.fill();
+            ctx.drawImage(imgJogador, cx - 22, cy - 22, 44, 44);
+
+            // Renderização da Textura da Ferramenta ativa/customizada por imagem
+            let pickInfo = player.visualPickaxeOverride ? player.visualPickaxeOverride : pickaxes[player.level - 1];
+            ctx.save();
+            if (pickInfo.imgElement && pickInfo.imgElement.complete) {
+                ctx.drawImage(pickInfo.imgElement, cx + 14, cy - 28, 30, 30);
+            } else {
+                ctx.strokeStyle = pickInfo.color; ctx.lineWidth = 5;
+                ctx.beginPath(); ctx.moveTo(cx + 12, cy - 2); ctx.lineTo(cx + 30, cy - 14); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function exitToMainMenu() {
+            gameActive = false; resetMining();
+            document.getElementById('game-ui').style.display = 'none';
+            document.getElementById('side-panel').style.display = 'none';
+            document.getElementById('instructions').style.display = 'none';
+            let menu = document.getElementById('main-menu'); menu.style.display = 'flex'; menu.style.opacity = '1';
+        }
+
+        function openCustomPickaxeMenu() { isCustomPickMenuOpen = true; document.getElementById('pickaxe-custom-modal').style.display = 'block'; renderPickaxeStyleList(); }
+        function closeCustomPickaxeMenu() { isCustomPickMenuOpen = false; document.getElementById('pickaxe-custom-modal').style.display = 'none'; player.x += 60; }
+
+        function renderPickaxeStyleList() {
+            let html = "";
+            pickaxes.forEach((p) => {
+                let unlocked = player.level >= p.id; let btnText = unlocked ? "Equipar" : "Bloqueada";
+                let currentActiveId = player.visualPickaxeOverride ? player.visualPickaxeOverride.id : pickaxes[player.level - 1].id;
+                if (currentActiveId === p.id) btnText = "Em Uso ✅";
+                let preview = `<img src="${p.imgElement.src}" class="pick-preview-img"/>`;
+                html += `<div class="pick-row"><span>${preview}<b>${p.name.split(" ")[0]}</b></span><button class="pick-btn" onclick="selectPickaxeStyle(${p.id})" ${(!unlocked || currentActiveId === p.id) ? 'disabled' : ''}>${btnText}</button></div>`;
+            });
+            document.getElementById('pickaxe-style-list').innerHTML = html;
+        }
+
+        function selectPickaxeStyle(id) { let selected = pickaxes.find(p => p.id === id); if(selected) { player.visualPickaxeOverride = selected; triggerAlert("Visual Equipado!"); renderPickaxeStyleList(); updateUI(); } }
+        function switchTab(t) { document.getElementById('tab-loja').style.display = t === 'loja' ? 'block' : 'none'; document.getElementById('tab-skins').style.display = t === 'skins' ? 'block' : 'none'; document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active'); }
+        function triggerAlert(text) { let el = document.getElementById('alert-box'); el.innerText = text; el.style.display = 'block'; setTimeout(() => { el.style.display = 'none'; }, 2000); }
+        function renderInventoryList() { let html = ""; for (let key in backpack) { html += `<div class="inv-item"><span>■ <b>${oreTypes[key].name}</b></span><span>${backpack[key]} un</span></div>`; } document.getElementById('inventory-list').innerHTML = html; }
+
+        function renderSkinsShop() {
+            let html = "";
+            skinShop.forEach((s, idx) => {
+                let btnText = s.purchased ? "Equipar" : `Comprar ($${s.cost})`; if (player.activeSkin === s.color) btnText = "Equipado ✅";
+                html += `<div class="skin-row"><span><span class="skin-preview" style="background:${s.color}"></span>${s.name}</span><button onclick="interactSkin(${idx})" ${player.activeSkin === s.color ? 'disabled' : ''}>${btnText}</button></div>`;
+            });
+            document.getElementById('skins-list').innerHTML = html;
+        }
+
+        function interactSkin(idx) {
+            let s = skinShop[idx];
+            if (!s.purchased) {
+                if (player.money >= s.cost) { player.money -= s.cost; s.purchased = true; player.activeSkin = s.color; triggerAlert("Skin Ativada!"); } else { triggerAlert("Sem saldo!"); }
+            } else { player.activeSkin = s.color; }
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('money').innerText = player.money;
+            let currentPickDisplay = player.visualPickaxeOverride ? player.visualPickaxeOverride : pickaxes[player.level - 1];
+            document.getElementById('pickaxe-name').innerText = currentPickDisplay.name.split(" (")[0];
+            document.getElementById('pickaxe-name').style.color = currentPickDisplay.color;
+            document.getElementById('total-ores').innerText = Object.values(backpack).reduce((a, b) => a + b, 0);
+
+            let next = pickaxes[player.level];
+            let upBtn = document.getElementById('upgrade-btn');
+            if (next) { upBtn.innerText = `Upgrade: ${next.name.split(" (")[0]} ($${next.cost})`; upBtn.disabled = player.money < next.cost; } else { upBtn.innerText = "Nível Máximo! ⚡"; upBtn.disabled = true; }
+            document.getElementById('museum-income-ui').style.display = Object.values(museumStock).some(v => v) ? 'block' : 'none';
+            if(isInventoryOpen) renderInventoryList();
+            renderSkinsShop();
+        }
+
+        function sellOres() {
+            let earnings = 0; for (let key in backpack) { earnings += backpack[key] * oreTypes[key].val; backpack[key] = 0; }
+            player.money += earnings; if(earnings > 0) triggerAlert(`Faturou: +$${earnings}`); updateUI();
+        }
+
+        function buyUpgrade() { let next = pickaxes[player.level]; if (next && player.money >= next.cost) { player.money -= next.cost; player.level++; updateUI(); } }
+
+        function startGame() {
+            document.getElementById('main-menu').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('main-menu').style.display = 'none'; document.getElementById('game-ui').style.display = 'block';
+                document.getElementById('side-panel').style.display = 'block'; document.getElementById('instructions').style.display = 'block';
+                currentZone = "mina"; player.x = 0; player.y = 120; gameActive = true;
+            }, 400);
+        }
+
+        function gameLoop() { updateLogic(); drawScene(); requestAnimationFrame(gameLoop); }
+        updateUI(); gameLoop();
+    </script>
+</body>
+</html>
